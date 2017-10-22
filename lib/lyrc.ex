@@ -55,8 +55,22 @@ defmodule AZlyrics do
     Enum.filter(list, &(is_bitstring(&1)))
   end
 
-  def readit do
-    File.read!("copycat.html")
-    |> Floki.find("div.col-lg-8 div")
+  def get_albums(artist_url) do
+    url = base_url()<>artist_url
+    get(url)
+    |> handle_album_response(url)
   end
+  def handle_album_response({:ok, %{body: body}}, url) do
+    tags = body
+    |> Floki.find("div#listAlbum a")
+    Enum.zip(
+      Floki.text(tags, sep: ";;") |> String.split(";;"),
+      Enum.map(Floki.attribute(tags, "href"), &String.replace_leading(&1, "../", "")))
+  end
+
+end
+
+defmodule AZlyrics.Artists do
+  # TODO: encapsulate local state around queried artists, instead of pinging every time
+  # STATE: [{artist_name, rel_url_link}]
 end
