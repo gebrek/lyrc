@@ -23,12 +23,12 @@ defmodule AZlyrics do
   def get(url) do
     headers = []
     options = []
-    url
+    (base_url()<>url)
     |> HTTPoison.get(headers, options)
   end
 
   def az_directory(letter) do
-    url = base_url()<>letter<>".html"
+    url = letter<>".html"
     get(url)
     |> handle_az_dir_response(url)
   end
@@ -40,29 +40,45 @@ defmodule AZlyrics do
   end
   
   def get_lyric(url) do
-    headers = []
-    options = []
-    url
-    |> HTTPoison.get(headers, options)
+    get(url)
     |> handle_lyric_response(url)
   end
 
   def handle_lyric_response({:ok, %{body: body}}, url) do
+    title = body |> Floki.find("title")
+    |> Floki.text |> String.split("-")
+    |> Enum.at(1) |> String.trim_leading
     {_,_,child_nodes} = body
     |> Floki.find("div.col-lg-8 div")
     |> Enum.at(4)    
-    child_nodes
+    lyrics = child_nodes
     |> filter_strings
     |> Enum.join()
-    |> String.split("\r\n")
+    |> String.split("\n")
+    |> Enum.map(&String.trim(&1))
+    |> Enum.reject(&(&1 == ""))
+    {title, lyrics}
   end
 
   def filter_strings(list) do
     Enum.filter(list, &(is_bitstring(&1)))
   end
 
+  defp read_album_title(str) do
+    cond do
+      not(is_bitstring(str)) ->
+	""
+      String.starts_with?(str, "album:") ->
+	Enum.at(String.split(str, "\""), 1)
+      String.starts_with?(str, "other songs:") ->
+	"Other Songs"
+      true ->
+	""
+    end
+  end
+
   def get_albums(artist_url) do
-    url = base_url()<>artist_url
+    url = artist_url
     get(url)
     |> handle_album_response(url)
   end
@@ -70,11 +86,11 @@ defmodule AZlyrics do
     tags = body
     |> Floki.find("div#listAlbum")
     [{_, _, child_nodes}|_] = tags
-    child_nodes
+    albums = child_nodes
     |> handle_songs_per_album()
-  #   Enum.zip(
-  #     Floki.text(tags, sep: ";;") |> String.split(";;"),
-  #     Enum.map(Floki.attribute(tags, "href"), &String.replace_leading(&1, "../", "")))
+    for {title, songs} <- albums do
+      {read_album_title(title), songs}
+    end
   end
   def handle_songs_per_album([], cur_alb, acc) do
     [cur_alb|acc]
@@ -94,8 +110,15 @@ defmodule AZlyrics do
   end
 end
 
-defmodule AZlyrics.Artists do
+defmodule AZlyrics.Store do
   # TODO: encapsulate local state around queried artists, instead of pinging every time
-  # STATE: [{artist_name, rel_url_link}]
-end
+  # STATE: 
+  # [{artistname, [{albumname, [{songname, lyrics}, ...]}, ...]}, ...]
+  def init() do
+    :ets.new(:store, [:named_table])
+  end
 
+  def add_artist_disco({artist_name, alb_map}) do
+    
+  end
+end
