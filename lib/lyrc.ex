@@ -6,12 +6,18 @@ defmodule AZlyrics do
     "https://www.azlyrics.com/"
   end
 
+  
+  def search_artist(artist_name) do
+    letter = String.downcase(String.slice(artist_name, 0..0))
+    search_artist(artist_name, az_directory(letter))
+  end
   def search_artist(artist_name, artist_list) do
     Enum.map(artist_list,
       fn({name, link})->
 	{String.jaro_distance(artist_name, name), {name, link}}
       end)
       |> Enum.sort_by(fn({n, _})-> n end, &>=/2)
+    |> Enum.take(10)
   end
 
   def get(url) do
@@ -62,15 +68,34 @@ defmodule AZlyrics do
   end
   def handle_album_response({:ok, %{body: body}}, url) do
     tags = body
-    |> Floki.find("div#listAlbum a")
-    Enum.zip(
-      Floki.text(tags, sep: ";;") |> String.split(";;"),
-      Enum.map(Floki.attribute(tags, "href"), &String.replace_leading(&1, "../", "")))
+    |> Floki.find("div#listAlbum")
+    [{_, _, child_nodes}|_] = tags
+    child_nodes
+    |> handle_songs_per_album()
+  #   Enum.zip(
+  #     Floki.text(tags, sep: ";;") |> String.split(";;"),
+  #     Enum.map(Floki.attribute(tags, "href"), &String.replace_leading(&1, "../", "")))
   end
-
+  def handle_songs_per_album([], cur_alb, acc) do
+    [cur_alb|acc]
+  end
+  def handle_songs_per_album([{tag_name, tag_attr, tag_sub}|rest], cur_alb \\ {:name, []}, acc \\ []) do
+    case tag_attr do
+      [{"class", "album"}] ->
+	handle_songs_per_album(rest, {Floki.text(tag_sub), []}, [cur_alb|acc])
+      [{"href", link}|_] ->
+	handle_songs_per_album(rest, {elem(cur_alb,0), 
+				      [String.replace_leading(link, "../", "")|
+				       elem(cur_alb,1)]},
+	  acc)
+      _ ->
+	handle_songs_per_album(rest, cur_alb, acc)
+    end
+  end
 end
 
 defmodule AZlyrics.Artists do
   # TODO: encapsulate local state around queried artists, instead of pinging every time
   # STATE: [{artist_name, rel_url_link}]
 end
+
