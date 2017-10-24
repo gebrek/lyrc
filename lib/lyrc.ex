@@ -27,6 +27,13 @@ defmodule AZlyrics do
     |> HTTPoison.get(headers, options)
   end
 
+  def get_disco(artist_url) do
+    albs = AZlyrics.get_albums(artist_url)
+    for {t, l} <- albs do
+      {t, Enum.map(l, &AZlyrics.get_lyric(&1))}
+    end
+  end
+
   def az_directory(letter) do
     url = letter<>".html"
     get(url)
