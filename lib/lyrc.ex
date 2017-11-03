@@ -54,7 +54,8 @@ defmodule AZlyrics do
   def handle_lyric_response({:ok, %{body: body}}, url) do
     title = body |> Floki.find("title")
     |> Floki.text |> String.split("-")
-    |> Enum.at(1) |> String.trim_leading
+    |> Enum.slice(1..-1) |> Enum.join("-")
+    |> String.trim_leading
     {_,_,child_nodes} = body
     |> Floki.find("div.col-lg-8 div")
     |> Enum.at(4)    
@@ -75,7 +76,7 @@ defmodule AZlyrics do
     cond do
       not(is_bitstring(str)) ->
 	""
-      String.starts_with?(str, "album:") ->
+      String.starts_with?(str, ["EP:", "album:"]) ->
 	Enum.at(String.split(str, "\""), 1)
       String.starts_with?(str, "other songs:") ->
 	"Other Songs"
@@ -117,15 +118,49 @@ defmodule AZlyrics do
   end
 end
 
-defmodule AZlyrics.Store do
+defmodule LyricStore do
   # TODO: encapsulate local state around queried artists, instead of pinging every time
   # STATE: 
   # [{artistname, [{albumname, [{songname, lyrics}, ...]}, ...]}, ...]
   def init() do
-    :ets.new(:store, [:named_table])
+    :dets.new(:store, [:set, :protected, :named_table])
   end
 
-  def add_artist_disco({artist_name, alb_map}) do
+  def make_tree_records({root, branchs}) do
+    for {albs, songs} <- branchs do
+      for {title, lyrics} <- songs do
+	{root, albs, title, lyrics}
+      end
+    end
+    |> List.flatten
+  end
+
+  def add_artist_disco({artist_name, artist_disco}) do
+    empty = fn({x, y}) ->
+      case {x, y} do
+	{"", _} ->
+	  true
+	{_, []} ->
+	  true
+	_ ->
+	  false
+      end
+    end
+    :ets.insert(:store, {artist_name, Enum.reject(artist_disco, empty)})
+  end
+end
+
+defmodule Cache do
+  def store(path, term) do
+    File.write!(path, :erlang.term_to_binary(term))
+  end
+  def read(path) do
+    File.read!(path) |> :erlang.binary_to_term
+  end
+end
+
+defmodule Disk do
+  def init
     
   end
 end
