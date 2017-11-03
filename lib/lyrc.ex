@@ -122,9 +122,13 @@ defmodule LyricStore do
   # TODO: encapsulate local state around queried artists, instead of pinging every time
   # STATE: 
   # [{artistname, [{albumname, [{songname, lyrics}, ...]}, ...]}, ...]
-  def init() do
-    :dets.new(:store, [:set, :protected, :named_table])
+  def open() do
+    :dets.open_file(:store, [type: :set])
   end
+
+  # def init() do
+  #   :dets.new(:store, [:set, :protected, :named_table])
+  # end
 
   def make_tree_records({root, branchs}) do
     for {albs, songs} <- branchs do
@@ -146,7 +150,7 @@ defmodule LyricStore do
 	  false
       end
     end
-    :ets.insert(:store, {artist_name, Enum.reject(artist_disco, empty)})
+    :dets.insert(:store, {artist_name, Enum.reject(artist_disco, empty)})
   end
 end
 
@@ -156,11 +160,5 @@ defmodule Cache do
   end
   def read(path) do
     File.read!(path) |> :erlang.binary_to_term
-  end
-end
-
-defmodule Disk do
-  def init
-    
   end
 end
