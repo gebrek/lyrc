@@ -29,7 +29,12 @@ end
 
 defmodule Crawler.DB do
   def create do
-    Mnesia.create_table(Page, [attributes: [:url, :html, :date_recorded]])
+    Mnesia.create_table(Page, [attributes: [:url, :html, :date_recorded],
+			       disc_copies: [node()]])
+  end
+  def recreate do
+    Mnesia.delete_table(Page)
+    create()
   end
 
   def write(%HTTPoison.Response{request_url: url, body: body, status_code: _n} = resp) do
