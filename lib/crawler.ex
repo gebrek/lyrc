@@ -12,6 +12,13 @@ defmodule Crawler do
     |> Floki.attribute("href")
   end
 
+  def known?(url) do
+    case Crawler.DB.read(url) do
+      [] -> false
+      [x|_] -> true
+    end
+  end
+
   def get(url) do
     url
     |> Crawler.DB.read
