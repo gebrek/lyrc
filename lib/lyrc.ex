@@ -21,16 +21,18 @@ defmodule AZlyrics do
   end
 
   def get(url) do
-    headers = []
-    options = []
-    (base_url()<>url)
-    |> HTTPoison.get(headers, options)
+    (base_url()<>String.trim_leading(url, base_url()))
+    |> Crawler.get
   end
 
   def get_disco(artist_url) do
     albs = AZlyrics.get_albums(artist_url)
     for {t, l} <- albs do
-      {t, Enum.map(l, &AZlyrics.get_lyric(&1))}
+      IO.puts("#{t} #{Enum.join(l, "\n\t")}\n")
+    {t, Enum.map(l, fn(x) ->
+	IO.puts(x)
+	AZlyrics.get_lyric(x)
+      end)}
     end
   end
 
@@ -39,7 +41,7 @@ defmodule AZlyrics do
     get(url)
     |> handle_az_dir_response(url)
   end
-  def handle_az_dir_response({:ok, %{body: body}}, url) do
+  def handle_az_dir_response(body, _url) do
     tags = body
     |> Floki.find("div.artist-col a")
     # |> Floki.attribute("href")
@@ -51,13 +53,13 @@ defmodule AZlyrics do
     |> handle_lyric_response(url)
   end
 
-  def handle_lyric_response({:ok, %{body: body}}, url) do
+  def handle_lyric_response(body, _url) do
     title = body |> Floki.find("title")
     |> Floki.text |> String.split("-")
     |> Enum.slice(1..-1) |> Enum.join("-")
     |> String.trim_leading
     {_,_,child_nodes} = body
-    |> Floki.find("div.col-lg-8 div")
+    |> Floki.find("div.col-xs-12.col-lg-8.text-center div")
     |> Enum.at(4)    
     lyrics = child_nodes
     |> filter_strings
@@ -90,7 +92,7 @@ defmodule AZlyrics do
     get(url)
     |> handle_album_response(url)
   end
-  def handle_album_response({:ok, %{body: body}}, url) do
+  def handle_album_response({:ok, %{body: body}}, _url) do
     tags = body
     |> Floki.find("div#listAlbum")
     [{_, _, child_nodes}|_] = tags
@@ -100,10 +102,15 @@ defmodule AZlyrics do
       {read_album_title(title), songs}
     end
   end
+  def handle_album_response({:error, err}, url) do
+    raise "Could not grab album from #{url} :: #{inspect(err)}"
+  end
+
+  def handle_songs_per_album(list, cur_alb \\ {:name, []}, acc \\ [])
   def handle_songs_per_album([], cur_alb, acc) do
     [cur_alb|acc]
   end
-  def handle_songs_per_album([{tag_name, tag_attr, tag_sub}|rest], cur_alb \\ {:name, []}, acc \\ []) do
+  def handle_songs_per_album([{_tag_name, tag_attr, tag_sub}|rest], cur_alb, acc) do
     case tag_attr do
       [{"class", "album"}] ->
 	handle_songs_per_album(rest, {Floki.text(tag_sub), []}, [cur_alb|acc])
@@ -123,7 +130,11 @@ defmodule LyricStore do
   # STATE: 
   # [{artistname, [{albumname, [{songname, lyrics}, ...]}, ...]}, ...]
   def open() do
-    :dets.open_file(:store, [type: :set])
+    :dets.open_file(:store)
+  end
+
+  def close() do
+    :dets.close(:store)
   end
 
   # def init() do
@@ -151,6 +162,11 @@ defmodule LyricStore do
       end
     end
     :dets.insert(:store, {artist_name, Enum.reject(artist_disco, empty)})
+  end
+
+  def list_all() do
+    select_all = [{:"$1", [], [:"$1"]}]
+    :dets.select(:store, select_all)
   end
 end
 

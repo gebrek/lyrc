@@ -14,7 +14,7 @@ defmodule Lyrc.Mixfile do
   #
   # Type "mix help compile.app" for more information
   def application do
-    [applications: [:logger, :httpoison]]
+    [applications: [:logger, :httpoison, :mnesia]]
   end
 
   # Dependencies can be Hex packages:
@@ -30,6 +30,7 @@ defmodule Lyrc.Mixfile do
     [
       {:httpoison, "~> 0.13"},
       {:floki, "~> 0.18.0"},
+      # {:amnesia, "~> 0.2.7"},
     ]
   end
 end
