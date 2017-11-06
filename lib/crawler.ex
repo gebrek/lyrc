@@ -5,6 +5,13 @@ defmodule Crawler do
   Memoized web pages. Simply get and forget.
 """
 
+  def get_links(url) do
+    url
+    |> Crawler.get
+    |> Floki.find("a")
+    |> Floki.attribute("href")
+  end
+
   def get(url) do
     url
     |> Crawler.DB.read
