@@ -6,7 +6,11 @@ defmodule AZlyrics do
     "https://www.azlyrics.com/"
   end
 
-  
+  def get(url) do
+    (base_url()<>String.trim_leading(url, base_url()))
+    |> Crawler.get
+  end
+
   def search_artist(artist_name) do
     letter = String.downcase(String.slice(artist_name, 0..0))
     search_artist(artist_name, az_directory(letter))
@@ -18,11 +22,6 @@ defmodule AZlyrics do
       end)
       |> Enum.sort_by(fn({n, _})-> n end, &>=/2)
     |> Enum.take(10)
-  end
-
-  def get(url) do
-    (base_url()<>String.trim_leading(url, base_url()))
-    |> Crawler.get
   end
 
   def get_disco(artist_url) do
@@ -74,6 +73,7 @@ defmodule AZlyrics do
     Enum.filter(list, &(is_bitstring(&1)))
   end
 
+
   defp read_album_title(str) do
     cond do
       not(is_bitstring(str)) ->
@@ -92,7 +92,7 @@ defmodule AZlyrics do
     get(url)
     |> handle_album_response(url)
   end
-  def handle_album_response({:ok, %{body: body}}, _url) do
+  def handle_album_response(body, _url) do
     tags = body
     |> Floki.find("div#listAlbum")
     [{_, _, child_nodes}|_] = tags
@@ -101,9 +101,6 @@ defmodule AZlyrics do
     for {title, songs} <- albums do
       {read_album_title(title), songs}
     end
-  end
-  def handle_album_response({:error, err}, url) do
-    raise "Could not grab album from #{url} :: #{inspect(err)}"
   end
 
   def handle_songs_per_album(list, cur_alb \\ {:name, []}, acc \\ [])

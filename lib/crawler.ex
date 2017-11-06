@@ -39,6 +39,20 @@ defmodule Crawler do
     |> Crawler.DB.write
     resp.body
   end
+  defp try_web({:error, %{reason: :timeout} = err}, url) do
+    IO.puts("#{url} timedout, retrying...")
+    :timer.sleep(1000)
+    get(url)
+  end
+  defp try_web({:error, %{reason: :closed} = err}, url) do
+    IO.puts("#{url} closed, retrying...")
+    :timer.sleep(2000)
+    get(url)
+  end
+  defp try_web({:error, err}, url) do
+    IO.puts("Failed to get page #{url}: #{inspect(err)}")
+    ""
+  end
 end
 
 defmodule Crawler.DB do
@@ -61,6 +75,7 @@ defmodule Crawler.DB do
   end
 
   def list do
+    # likely dangerous to invoke once db has grow much
     :mnesia.transaction(
       fn ->
 	:mnesia.match_object({Page, :_, :_, :_})
