@@ -1,19 +1,50 @@
+alias :mnesia, as: Mnesia
+
 defmodule Crawler do
-  def handle_response({:ok, %{body: body}}, url) do
-    [url | body
-    |> Floki.find("a")
-    |> Floki.attribute("href")]    
-  end
+  @moduledoc """
+  Memoized web pages. Simply get and forget.
+"""
 
-  def handle_response(_response, url) do
-    [url]
-  end
-
-  def get_links(url) do
-    headers = []
-    options = [follow_redirect: true]
+  def get(url) do
     url
-    |> HTTPoison.get(headers, options)
-    |> handle_response(url)
+    |> Crawler.DB.read
+    |> try_db(url)
+  end
+
+  defp try_db([], url) do
+    url
+    |> HTTPoison.get([], [])
+    |> try_web(url)
+  end
+  defp try_db([{Page, url, html, _date}|_], url) do
+    html
+  end
+
+  defp try_web({:ok, resp}, _url) do
+    resp
+    |> Crawler.DB.write
+    resp.body
+  end
+end
+
+defmodule Crawler.DB do
+  def create do
+    Mnesia.create_table(Page, [attributes: [:url, :html, :date_recorded]])
+  end
+
+  def write(%HTTPoison.Response{request_url: url, body: body, status_code: _n} = resp) do
+    Mnesia.dirty_write({Page, url, body, DateTime.utc_now()})
+    resp
+  end
+
+  def read(url) do
+    Mnesia.dirty_read({Page, url})
+  end
+
+  def list do
+    :mnesia.transaction(
+      fn ->
+	:mnesia.match_object({Page, :_, :_, :_})
+      end)
   end
 end
