@@ -81,4 +81,9 @@ defmodule Crawler.DB do
 	:mnesia.match_object({Page, :_, :_, :_})
       end)
   end
+
+  def count do
+    {:atomic, lst} = list()
+    length(lst)
+  end
 end
